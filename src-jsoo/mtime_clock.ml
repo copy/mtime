@@ -13,12 +13,20 @@ let performance_now_ms_unavailable () =
 
 let performance_now_ms =
   let has_perf = Js.Unsafe.get Dom_html.window "performance" in
-  match Js.Optdef.to_option has_perf with
+  let performance = match Js.Optdef.to_option has_perf with
+  | None ->
+      let require = Js.Unsafe.js_expr "require" in
+      (match Js.Optdef.to_option require with
+           | Some require ->
+             Js.Unsafe.get (Js.Unsafe.fun_call require [| Js.Unsafe.inject (Js.string "perf_hooks")|]) "performance"
+           | None ->
+             performance_now_ms_unavailable ()
+      )
+  | Some p -> p
+  in
+  match Js.Optdef.to_option (Js.Unsafe.get performance "now") with
   | None -> performance_now_ms_unavailable
-  | Some p ->
-      match Js.Unsafe.get p "now" with
-      | None -> performance_now_ms_unavailable
-      | Some n -> fun () -> Js.Unsafe.meth_call p "now" [||]
+  | Some n -> fun () -> Js.Unsafe.meth_call performance "now" [||]
 
 (* Conversion of DOMHighResTimeStamp to uint64 nanosecond timestamps.
 
